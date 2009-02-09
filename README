@@ -1,7 +1,52 @@
 pg_trigger_count
 ================
 
+So you've got a lot of counts you want to cache so as not to recalculate them all the time.   
+You've tried using ActiveRecord cache_counts, but they get out of sync.   You also want to use
+memcache instead of going back to the database to check the counts.   PgTriggerCount to the rescue!
+Just by adding a single line to an ActiveRecord model class, PTC will create postgres functions/triggers
+to handle incrementing/decrementing and recalculating your counts.  As a bonus, if you have pgmemcache
+installed, it will also invalidate your cache.   Finally PTC adds a special count methods to your models.
+
+EXAMPLES:
+
+class User
+  # Create a messages_count method on user.  
+  # Count messages in the messages table where our self.id = messages.user_id
+  pg_trigger_count :messages
+  
+  # Like a has_many polymorphic association
+  # Count messages in the messages table where messages.sender_type = 'User' AND messages.sender_id = self.id
+  pg_trigger_count :messages, :as => :sender
+
+  # Same as above, but limits the messages counted to those with state='active'
+  pg_trigger_count :active_messages, :as => :sender, :scope => [:active, {:state => :active}]
+  
+PTC creates a trigger/function for each count you set up on the target table.   
+When a row is inserted, updated, or deleted PTC handles incrementing the appropriate count table/column
+and optionally invalidating a memcache_key.   When a row is UPDATED it checks to see if any pertinent columns
+have changed. If they have, it decrements the old count and increments the new one.  
+
+If the count has never been calculated, it performs a COUNT() query and populates the count.
+
+Counts are not stored in the source or target tables themselves.  Instead each target table needs a count table.
+So for example, the counts table for the messages table would be:
+
+CREATE TABLE messages_counts (
+  id bigserial primary key,
+  key varchar,
+  name varchar,
+  cnt bigint
+)
+CREATE UNIQUE INDEX messages_counts_idx ON messages_counts(key,name);
+
+Below are instructions are on to get pgmemcache working on a mac running macports postgres.
+  
 TODO
+================
+
+Auto-generate counts tables.
+
 Maybe the cache names should just use the table_count_method_name for the trigger name
 
 I cache the reflections in the model class, but perhaps I should use the table_count_method_name instead of
@@ -16,7 +61,11 @@ It will require some duplication of logic on the ruby side.
 Right now I have to do a memcache_get before the memcache_delete because memcache_delete breaks if
 the record isn't there.
 
-MAC INSTALL
+Maybe I should keep a table of all the functions I've created so they can all be killed later easily.
+
+
+MAC INSTALL pgmemcache
+================
 
 Download and uncompress pgmemcache 
 http://pgfoundry.org/frs/download.php/2067/pgmemcache_2.0beta2.tar.bz2
