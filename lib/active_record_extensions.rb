@@ -42,11 +42,19 @@ module ActiveRecord
       @pg_trig_reflections[reflection.name] = reflection
       
       define_method "#{reflection.method_name}" do
-        return self.instance_variable_get("@#{reflection.method_name}") if self.instance_variable_get("@#{reflection.method_name}")
-        cache_key = reflection.cache_key_for(self)
-        self.instance_variable_set("@#{reflection.method_name}", CACHE.get_or_set(cache_key) do          
-          self.class.connection.select_value(reflection.select_count_for(self)) || self.class.connection.select_value(reflection.recalc_count_for(self))
-        end.to_i)
+        if use_cache?
+          return self.instance_variable_get("@#{reflection.method_name}") if self.instance_variable_get("@#{reflection.method_name}")
+          cache_key = reflection.cache_key_for(self)
+          self.instance_variable_set("@#{reflection.method_name}", CACHE.get_or_set(cache_key) do          
+            count_for(reflection)
+          end.to_i)
+        else
+          self.instance_variable_set("@#{reflection.method_name}", count_for(reflection))
+        end
+      end
+      
+      def count_for(reflection)
+        self.class.connection.select_value(reflection.select_count_for(self)) || self.class.connection.select_value(reflection.recalc_count_for(self))        
       end
       
       def purge_count_caches
@@ -92,6 +100,10 @@ module ActiveRecord
       
       @pgtrig = PgTriggerCount.new(counts_table,options)                  
     end    
+    
+    def use_cache?
+      pgtrig.use_pgmemcache?      
+    end
 
     def quote(to_quote)
       klass.connection.quote(to_quote.to_s)      

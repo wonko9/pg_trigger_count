@@ -98,10 +98,7 @@ restart postgres:
 > /opt/local/etc/LaunchDaemons/org.macports.postgresql83-server/postgresql83-server.wrapper restart
 
 
-
-Description goes here.
-
 COPYRIGHT
 =========
 
-Copyright (c) 2008 Adam Pisoni. See LICENSE for details.
+Copyright (c) 2008 Adam Pisoni Yammer Inc. See LICENSE for details.
