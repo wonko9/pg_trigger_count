@@ -1,6 +1,55 @@
 pg_trigger_count
 ================
 
+TODO
+Maybe the cache names should just use the table_count_method_name for the trigger name
+
+I cache the reflections in the model class, but perhaps I should use the table_count_method_name instead of
+the trigger name as the key
+
+The whole recalc function seems really brittle since I had to try and figure out what kind of variables
+were being passed in. I'm just looking for _id and making those bigints, but that's obviously brittle.
+Maybe the answer is to merge that function back into the main trigger_function and when the rails side has
+to recalculate, it just executes its OWN SQL and inserts it into the right counts_table. 
+It will require some duplication of logic on the ruby side.
+
+Right now I have to do a memcache_get before the memcache_delete because memcache_delete breaks if
+the record isn't there.
+
+MAC INSTALL
+
+Download and uncompress pgmemcache 
+http://pgfoundry.org/frs/download.php/2067/pgmemcache_2.0beta2.tar.bz2
+  from http://pgfoundry.org/frs/?group_id=1000052
+
+Download and uncompress the libmemcache source: 
+http://freshmeat.net/redir/libmemcache/54736/url_bz2/libmemcache-1.4.0.rc2.tar.bz2 
+  from http://freshmeat.net/projects/libmemcache/?branch_id=54736&release_id=180126
+ 
+Copy include/memcache.h to the pgmemcache dir
+
+> cd pgmemcache
+> sudo gmake install
+
+> psql83 -Upostgres -i /opt/local/share/postgresql83/contrib/pgmemcache.sql
+
+> sudo su -
+> vi /opt/local/var/db/postgresql83/defaultdb/postgresql.conf
+
+shared_preload_libraries and custom_variable_classes will be commented out, comment them both in and set them to:
+
+ shared_preload_libraries = 'pgmemcache'
+ shared_preload_libraries = 'pgmemcache'
+ 
+Add to the bottom of the file:
+pgmemcache.default_servers = 'localhost:11211'
+pgmemcache.default_behavior = ''
+
+restart postgres:
+> /opt/local/etc/LaunchDaemons/org.macports.postgresql83-server/postgresql83-server.wrapper restart
+
+
+
 Description goes here.
 
 COPYRIGHT
