@@ -15,8 +15,12 @@ class ReflectionGeneratorTest < Test::Unit::TestCase
     end
     
     should "work" do
-      pp "ADAMDEBUG: ", @generator.reflection_sql
+      sql = @generator.reflection_sql
+      f = File.open("../tmp/pg_trig.sql", "w")
+      f.write(sql)
     end
+    
+    String
     
   end
 end
