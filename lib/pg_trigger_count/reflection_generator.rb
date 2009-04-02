@@ -1,50 +1,34 @@
 require 'forwardable'
 class PgTriggerCount
   class ReflectionGenerator
-    
+
     attr_accessor :reflection
     def initialize(reflection)
-      @reflection = reflection        
-    end
-  
-    def count_sql(target="NEW")
-      counted_keys = reflection.counted_keys.keys.join(",")
-      "SELECT #{counted_keys}, count(*) as #{reflection.count_column} FROM #{counted_table}
-      WHERE #{count_conditions(target)}
-      GROUP BY #{counted_keys}"
+      @reflection = reflection
     end
 
-    def count_conditions(target="NEW")
-      @conditions ||= begin
-        conditions = scope.collect {|k,v|"#{reflection.counter_table}.#{k}='#{v}'"}
-        conditions += reflection.counted_keys.keys.collect do |key|
-          "#{reflection.counted_table}.#{key}=#{target}.#{key}"
-        end
+    def update_count_conditions(target="NEW")
+      conditions = reflection.counts_keys.collect do |count_key, keys|
+        "#{reflection.counts_table}.#{count_key}=#{target}.#{keys[:counter_key]}"
       end
+      conditions << "#{reflection.counts_table}.#{reflection.count_column} IS NOT NULL"
+      conditions.join(" AND ")
     end
 
-    def counts_update_sql(target,increment=1)      
-        "UPDATE #{reflection.counts_table}
-        SET #{reflection.count_column}=#{reflection.count_column}#{increment < 0 ? '' : '+'}#{increment}
-        WHERE #{counts_conditions(target)}"
+    def update_count_sql(target,increment=1)
+      "UPDATE #{reflection.counts_table}
+      SET #{reflection.count_column}=#{reflection.count_column}#{increment < 0 ? '' : '+'}#{increment}
+      WHERE #{update_count_conditions(target)}"
     end
 
-    def counts_insert_sql(target="NEW")
+    def insert_count_sql(target="NEW")
       counted_keys = reflection.counted_keys.keys
-      values = counted_keys.collect{|k|"#{target}.#{k}"}.join(",") <<
+      values = counted_keys.collect{|k|"#{target}.#{k}"}
+      values << "new_count.cnt"
       "INSERT INTO #{reflection.counts_table} (#{counted_keys.join(",")},#{reflection.count_column})
-      VALUES (#{target}.#{reflection}, new_count.#{reflection.count_column})"
+      VALUES (#{values.join(",")})"
     end
 
-    def counts_conditions(target="NEW")
-      @counts_counter_conditions ||= begin
-        conditions = reflection.counts_keys.collect do |count_key, keys|
-          "#{reflection.counts_table}.#{count_key}=#{target}.#{keys[:counter_key]}"
-        end
-        conditions << "#{reflection.counts_table}.#{reflection.count_column} IS NOT NULL"
-        conditions.join(" AND ")
-      end
-    end        
 
     def record_changed_conditions
       conditions = (reflection.counter_keys.keys + scope.keys).collect do |key|
@@ -63,35 +47,33 @@ class PgTriggerCount
 
     def cache_key
       ""
-      #"'#{count_key_prefix}:'||#{by.collect{|b|"NEW.#{b}"}.join(key_separator)}"      
+      #"'#{count_key_prefix}:'||#{by.collect{|b|"NEW.#{b}"}.join(key_separator)}"
     end
 
-    def reflection_sql
-<<-SQL
-IF (TG_OP = 'DELETE') THEN
-  #{counts_update_sql("NEW",-1)};
-ELSIF (TG_OP = 'INSERT') THEN
-  #{counts_update_sql("NEW",1)};
-ELSIF (TG_OP = 'UPDATE') THEN
-  IF #{record_changed_conditions} THEN
-    #{counts_update_sql("NEW",1)};
-    #{counts_update_sql("OLD",-1)};
-  ELSE
-    RETURN NEW;
-  END IF;
-END IF;
+    def generate_sql
+      "
+      IF (TG_OP = 'DELETE') THEN
+        #{update_count_sql("NEW",-1)};
+      ELSIF (TG_OP = 'INSERT') THEN
+        #{update_count_sql("NEW",1)};
+      ELSIF (TG_OP = 'UPDATE') THEN
+        IF #{record_changed_conditions} THEN
+          #{update_count_sql("NEW",1)};
+          #{update_count_sql("OLD",-1)};
+        ELSE
+          RETURN NEW;
+        END IF;
+      END IF;
 
-GET DIAGNOSTICS up_count = ROW_COUNT;
-IF up_count = 0 THEN --  we couldn't update so now we have to pre-populate
-   #{count_sql} INTO new_count;
-   #{counts_insert_sql};
-END IF;
---        #{cache_invalidation_sql(cache_key)};
-RETURN NEW;
-SQL
-
+      GET DIAGNOSTICS up_count = ROW_COUNT;
+      IF up_count = 0 THEN --  we couldn't update so now we have to pre-populate
+         #{select_count_sql} INTO new_count;
+         #{insert_count_sql};
+      END IF;
+      --        #{cache_invalidation_sql(cache_key)}
+      "
     end
-    
+
     def method_missing(name,*args)
       begin
         reflection.send(name,*args)

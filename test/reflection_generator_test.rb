@@ -9,18 +9,45 @@ class ReflectionGeneratorTest < Test::Unit::TestCase
   context "Basic Reflection" do
     
     setup do
-      ArMessage.stubs(:connection).returns(stub(:execute => true))    
-      @reflection = PgTriggerCount::Reflection.new(:count_column => :ar_messages, :counter_class => "ArUser")
+      Message.stubs(:connection).returns(stub(:execute => true))    
+      @reflection = PgTriggerCount::Reflection.new(:count_column => :messages, :counter_class => "User")
       @generator = PgTriggerCount::ReflectionGenerator.new(@reflection)
     end
     
     should "work" do
-      sql = @generator.reflection_sql
-      f = File.open("../tmp/pg_trig.sql", "w")
+      sql = @generator.generate_sql
+      f = File.open("../tmp/pg_trig_reflection1.sql", "w")
       f.write(sql)
+    end    
+  end
+
+
+  context "polymorphic" do
+    
+    setup do
+      Message.stubs(:connection).returns(stub(:execute => true))    
+      @reflection = PgTriggerCount::Reflection.new(:count_column => :messages, :counter_class => "User", :as => :sender)
+      @generator = PgTriggerCount::ReflectionGenerator.new(@reflection)
     end
     
-    String
+    should "work" do
+      sql = @generator.generate_sql
+      f = File.open("../tmp/pg_trig_reflection2.sql", "w")
+      f.write(sql)
+    end    
+  end
+  
+  context "full generator" do
+    setup do
+      Message.stubs(:connection).returns(stub(:execute => true))    
+      @reflection = PgTriggerCount::Reflection.new(:count_column => :messages, :counter_class => "User", :as => :sender)
+      @generator = PgTriggerCount::Generator.new(@reflection)
+    end
     
+    should "work" do
+      sql = @generator.generate_function
+      f = File.open("../tmp/pg_trig.sql", "w")
+      f.write(sql)
+    end    
   end
 end

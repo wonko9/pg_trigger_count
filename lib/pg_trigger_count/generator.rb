@@ -20,33 +20,42 @@ class PgTriggerCount
       "DROP FUNCTION #{function_name}() CASCADE"
     end
 
-    def separator
-      '_'
-    end
-
-    def key_separator
-      "||'#{separator}'||"
-    end
-
     def begin_function_sql
-      <<-SQL
-          CREATE OR REPLACE FUNCTION #{function_name}() RETURNS TRIGGER AS $#{function_name}$
-          DECLARE
-            up_count    integer;
-            new_count   RECORD;
-            new_total   integer;
-            cache_data  varchar;
-          BEGIN
-      SQL
+      "CREATE OR REPLACE FUNCTION #{function_name}() RETURNS TRIGGER AS $#{function_name}$
+      DECLARE
+        up_count    integer;
+        new_count   RECORD;
+        new_total   integer;
+        cache_data  varchar;
+      BEGIN
+      "
+    end
+    
+    def end_function_sql
+      "
+        RETURN NEW;
+      END;
+      $#{function_name}$ LANGUAGE plpgsql;
+      "
     end
             
     
     def generate_function
-      function = begin_function_sql
-      
-      
+      begin_function_sql <<
+      reflections.collect{ |r| r.generate_sql }.join("\n") <<
+      end_function_sql
     end
-    
+
+    def generate_trigger
+      <<-TRIG
+        CREATE TRIGGER #{trig_name}
+        AFTER INSERT OR UPDATE OR DELETE ON messages
+        FOR EACH ROW EXECUTE PROCEDURE #{trig_name}();
+      TRIG
+    end
+
+
+################################ OLD     
     def generate_recalc_function
       func_conditions = by.collect{|b|"var_#{b} " + (b.to_s[-3,3] == '_id' ? 'bigint' : 'varchar')}.join(',')
       conditions = by.collect{|b|"#{b}=var_#{b}"}.join(' AND ')
@@ -63,14 +72,6 @@ class PgTriggerCount
         END;
         $$ LANGUAGE plpgsql;
       SQL
-    end
-
-    def generate_trigger
-      <<-TRIG
-        CREATE TRIGGER #{trig_name}
-        AFTER INSERT OR UPDATE OR DELETE ON messages
-        FOR EACH ROW EXECUTE PROCEDURE #{trig_name}();
-      TRIG
     end
 
     

@@ -16,13 +16,13 @@ class ArMock
   end
 end
 
-class ArUser < ArMock
+class User < ArMock
 end
 
-class ArMessage < ArMock
+class Message < ArMock
 end
 
-class ArUserCount < ArMock
+class UserCount < ArMock
 end
 
 
