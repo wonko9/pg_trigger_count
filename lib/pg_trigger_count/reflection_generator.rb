@@ -7,6 +7,37 @@ class PgTriggerCount
       @reflection = reflection
     end
 
+    def select_count_conditions(target="NEW")
+      conditions = scope.collect {|k,v|"#{reflection.counted_table}.#{k}='#{v}'"}
+      conditions += reflection.counted_keys.keys.collect do |key|
+        "#{reflection.counted_table}.#{key}=#{target}.#{key}"
+      end
+      conditions.join(" AND ")
+    end
+
+    def select_count_sql(target="NEW")
+      counted_keys = reflection.counted_keys.keys.collect{|k|"#{counted_table}.#{k}"}.join(",")
+      "SELECT #{counted_keys}, count(*) as #{count_column} FROM #{counted_table}
+      WHERE #{select_count_conditions(target)}
+      GROUP BY #{counted_keys}"
+    end
+    
+    def insert_count_sql(target="NEW")
+      insert_keys = counted_keys.collect{|k,keys|keys[:counts_key]}
+      insert_keys << count_column
+      "INSERT INTO #{reflection.counts_table} (#{insert_keys.join(",")})
+        #{select_count_sql(target)}"
+      
+    end
+
+    # def insert_count_sql(target="NEW")
+    #   counted_keys = reflection.counted_keys.keys
+    #   values = counted_keys.collect{|k|"#{target}.#{k}"}
+    #   values << "new_count.cnt"
+    #   "INSERT INTO #{reflection.counts_table} (#{counted_keys.join(",")},#{reflection.count_column})
+    #   VALUES (#{values.join(",")})"
+    # end
+
     def update_count_conditions(target="NEW")
       conditions = reflection.counts_keys.collect do |count_key, keys|
         "#{reflection.counts_table}.#{count_key}=#{target}.#{keys[:counter_key]}"
@@ -20,15 +51,6 @@ class PgTriggerCount
       SET #{reflection.count_column}=#{reflection.count_column}#{increment < 0 ? '' : '+'}#{increment}
       WHERE #{update_count_conditions(target)}"
     end
-
-    def insert_count_sql(target="NEW")
-      counted_keys = reflection.counted_keys.keys
-      values = counted_keys.collect{|k|"#{target}.#{k}"}
-      values << "new_count.cnt"
-      "INSERT INTO #{reflection.counts_table} (#{counted_keys.join(",")},#{reflection.count_column})
-      VALUES (#{values.join(",")})"
-    end
-
 
     def record_changed_conditions
       conditions = (reflection.counter_keys.keys + scope.keys).collect do |key|
@@ -67,7 +89,6 @@ class PgTriggerCount
 
       GET DIAGNOSTICS up_count = ROW_COUNT;
       IF up_count = 0 THEN --  we couldn't update so now we have to pre-populate
-         #{select_count_sql} INTO new_count;
          #{insert_count_sql};
       END IF;
       --        #{cache_invalidation_sql(cache_key)}

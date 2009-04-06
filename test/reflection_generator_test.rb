@@ -44,10 +44,12 @@ class ReflectionGeneratorTest < Test::Unit::TestCase
       @generator = PgTriggerCount::Generator.new(@reflection)
     end
     
-    should "work" do
+    should "generate function" do
       sql = @generator.generate_function
       f = File.open("../tmp/pg_trig.sql", "w")
       f.write(sql)
+      f.write("\n\n")
+      f.write(@generator.generate_trigger)
     end    
   end
 end

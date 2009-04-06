@@ -48,9 +48,9 @@ class PgTriggerCount
 
     def generate_trigger
       <<-TRIG
-        CREATE TRIGGER #{trig_name}
+        CREATE TRIGGER #{function_name}
         AFTER INSERT OR UPDATE OR DELETE ON messages
-        FOR EACH ROW EXECUTE PROCEDURE #{trig_name}();
+        FOR EACH ROW EXECUTE PROCEDURE #{function_name}();
       TRIG
     end
 
