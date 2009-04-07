@@ -35,7 +35,8 @@ class PgTriggerCount
       end
 
       counter_class.has_one ar_reflection, :class_name => counts_class.to_s unless respond_to? counts_class.table_name
-      define_count_method            
+      
+      counter_class.define_count_method(ar_reflection,count_method_name,count_column)            
 
       if options[:as]
         @counter_keys = {
@@ -90,6 +91,24 @@ class PgTriggerCount
         @use_pgmemcache = PgTriggerCount.use_pgmemcache?(connection)
       end
     end
+
+    # def define_count_method
+    #   pp "ADAMDEBUG: #{count_method_name}"
+    #   
+    #   counter_class.send(:define_method,"#{count_method_name}") do
+    #     ar_reflection.send(count_column)
+    # 
+    #     # if use_cache?
+    #     #   return counter_class.instance_variable_get("@#{reflection.method_name}") if counter_class.instance_variable_get("@#{reflection.method_name}")
+    #     #   cache_key = reflection.cache_key_for(counter_class)
+    #     #   counter_class.instance_variable_set("@#{reflection.method_name}", CACHE.get_or_set(cache_key) do
+    #     #     count_for(reflection)
+    #     #   end.to_i)
+    #     # else
+    #       # ar_reflection.send(count_column)
+    #     # end
+    #   end
+    # end
     
     def ar_reflection
       counts_class.table_name
@@ -125,22 +144,6 @@ class PgTriggerCount
         self.send("#{$1}_class").table_name
       else
         raise NameError.new("Method #{name} does not exist")
-      end
-    end
-
-    def define_count_method
-      counter_class.define_method "#{count_method_name}" do
-        ar_reflection.send(count_column)
-
-        # if use_cache?
-        #   return counter_class.instance_variable_get("@#{reflection.method_name}") if counter_class.instance_variable_get("@#{reflection.method_name}")
-        #   cache_key = reflection.cache_key_for(counter_class)
-        #   counter_class.instance_variable_set("@#{reflection.method_name}", CACHE.get_or_set(cache_key) do
-        #     count_for(reflection)
-        #   end.to_i)
-        # else
-          # ar_reflection.send(count_column)
-        # end
       end
     end
 

@@ -1,4 +1,4 @@
-sh require 'forwardable'
+require 'forwardable'
 class PgTriggerCount
   class Generator
 
