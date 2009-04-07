@@ -1,5 +1,6 @@
 require File.dirname(__FILE__) + '/test_helper'
 require 'active_record'
+require 'ostruct'
 
 class PgTriggerCountTest < Test::Unit::TestCase
   # should "probably rename this file and start testing for real" do
@@ -53,6 +54,11 @@ class PgTriggerCountTest < Test::Unit::TestCase
 
     should "have right counter_keys" do
       assert_equal @reflection.counter_keys, {"id"=>{:counter_key=>"id", :counts_key=>"user_id", :counted_key=>"sender_id"}}
+    end
+    
+    should "select" do
+      u = OpenStruct.new(:id => 1)
+      pp "ADAMDEBUG: ", @reflection.select_count_for(u)
     end
 
   end
