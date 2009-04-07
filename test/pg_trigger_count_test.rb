@@ -34,7 +34,7 @@ class PgTriggerCountTest < Test::Unit::TestCase
     end
 
     should "have right counter_keys" do
-      assert_equal @reflection.counter_keys, {"id"=>{:counter_key=>"id", :counts_key=>"user_id", :counted_by_key=>"user_id"}}
+      assert_equal @reflection.counter_keys, {"id"=>{:counter_key=>"id", :counts_key=>"user_id", :counted_key=>"user_id"}}
     end
     
     should "have table names" do
@@ -52,7 +52,7 @@ class PgTriggerCountTest < Test::Unit::TestCase
     end
 
     should "have right counter_keys" do
-      assert_equal @reflection.counter_keys, {"id"=>{:counter_key=>"id", :counts_key=>"user_id", :counted_by_key=>"sender_id"}}
+      assert_equal @reflection.counter_keys, {"id"=>{:counter_key=>"id", :counts_key=>"user_id", :counted_key=>"sender_id"}}
     end
 
   end

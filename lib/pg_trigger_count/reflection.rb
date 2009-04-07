@@ -39,7 +39,7 @@ class PgTriggerCount
           'id' => {
             :counter_key    => 'id',
             :counts_key     => "#{counter_class.name.underscore}_id",
-            :counted_by_key => "#{options[:as]}_id",
+            :counted_key => "#{options[:as]}_id",
           }
         }
         @scope["#{options[:as]}_type"] = counter_class.to_s
@@ -48,14 +48,14 @@ class PgTriggerCount
           'id'=> {
             :counter_key    => 'id',
             :counts_key     => "#{counter_class.name.underscore}_id",
-            :counted_by_key => "#{counter_class.name.underscore}_id",
+            :counted_key => "#{counter_class.name.underscore}_id",
           }
         }
       end
 
       # setup lookups for each type of table
       @counter_keys.each do |counter_key,keys|
-        @counted_keys[keys[:counted_by_key]] = keys
+        @counted_keys[keys[:counted_key]] = keys
         @counts_keys[keys[:counts_key]]      = keys
       end
 

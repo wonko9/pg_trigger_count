@@ -45,11 +45,13 @@ class ReflectionGeneratorTest < Test::Unit::TestCase
     end
     
     should "generate function" do
+      # pp "ADAMDEBUG: ", @generator.reflections.first.insert_count_sql
+      
       sql = @generator.generate_function
       f = File.open("../tmp/pg_trig.sql", "w")
       f.write(sql)
       f.write("\n\n")
-      f.write(@generator.generate_trigger)
+      # f.write(@generator.generate_trigger_safe)
     end    
   end
 end
