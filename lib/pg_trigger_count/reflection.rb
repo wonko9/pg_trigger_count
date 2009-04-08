@@ -34,10 +34,6 @@ class PgTriggerCount
         puts "ERROR: #{@counts_class_name} has not been created. Please run rake pgtc:generate_migration" unless @counts_class.table_exists?
       end
 
-      counter_class.has_one ar_reflection, :class_name => counts_class.to_s unless respond_to? counts_class.table_name
-      
-      counter_class.define_count_method(ar_reflection,count_method_name,count_column)            
-
       if options[:as]
         @counter_keys = {
           'id' => {
@@ -63,6 +59,9 @@ class PgTriggerCount
         @counts_keys[keys[:counts_key]]      = keys
       end
 
+      # set up active record reflection
+      counter_class.has_one counts_association, :class_name => counts_class.to_s unless respond_to? counts_class.table_name      
+      counter_class.define_count_method(counts_association,count_method_name,count_column)            
 
       # @count_by_keys = options[:by]
       #
@@ -96,7 +95,7 @@ class PgTriggerCount
     #   pp "ADAMDEBUG: #{count_method_name}"
     #   
     #   counter_class.send(:define_method,"#{count_method_name}") do
-    #     ar_reflection.send(count_column)
+    #     counts_association.send(count_column)
     # 
     #     # if use_cache?
     #     #   return counter_class.instance_variable_get("@#{reflection.method_name}") if counter_class.instance_variable_get("@#{reflection.method_name}")
@@ -105,12 +104,12 @@ class PgTriggerCount
     #     #     count_for(reflection)
     #     #   end.to_i)
     #     # else
-    #       # ar_reflection.send(count_column)
+    #       # counts_association.send(count_column)
     #     # end
     #   end
     # end
     
-    def ar_reflection
+    def counts_association
       counts_class.table_name
     end
 
