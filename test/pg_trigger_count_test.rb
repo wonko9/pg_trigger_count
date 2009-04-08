@@ -7,6 +7,13 @@ class PgTriggerCountTest < Test::Unit::TestCase
   #   flunk "hey buddy, you should probably rename this file and start testing for real"
   # end
 
+
+  # def test_generates_definition
+  #   Rails::Generator::Scripts::Generate.new.run(["yaffle", "bird"], :destination => fake_rails_root)
+  #   definition = File.read(File.join(fake_rails_root, "definition.txt"))
+  #   assert_match /Yaffle\:/, definition
+  # end
+
   context "Basic Reflection" do
     
     setup do

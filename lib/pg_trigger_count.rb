@@ -17,4 +17,14 @@ class PgTriggerCount
       @use_pgmemcache = false
     end
   end
+
+  def self.add_counted_class(klass)
+    pp "ADAMDEBUG: ADDING #{klass}"
+    @counted_classes ||= []
+    @counted_classes << klass unless @counted_classes.include?(klass)
+  end
+
+  def self.counted_classes
+    @counted_classes
+  end
 end

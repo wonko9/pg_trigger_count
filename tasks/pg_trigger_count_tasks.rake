@@ -1,4 +1,14 @@
-# desc "Explaining what the task does"
-# task :pg_trigger_count do
-#   # Task goes here
-# end
+require 'rubygems'
+require 'rake'
+require 'active_record'
+# require "#{File.dirname(__FILE__)}/../../config/environment.rb"
+
+namespace :pgtc do
+
+  desc 'Generate Functions'
+  task :generate_functions do
+    
+
+  end
+
+end

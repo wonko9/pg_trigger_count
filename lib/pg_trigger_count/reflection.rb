@@ -8,6 +8,8 @@ class PgTriggerCount
       class_reflections ||= []
       class_reflections << reflection
       reflection.counted_class.instance_variable_set("@pgtc_reflections",class_reflections)
+      pp "ADAMDEBUG: REFLECTION for #{reflection.counted_class}"
+      PgTriggerCount.add_counted_class(reflection.counted_class)
     end
 
     attr_accessor :options, :counter_class, :counted_class, :counts_class, :count_column,
