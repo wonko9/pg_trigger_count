@@ -1,4 +1,23 @@
-require "#{File.dirname(__FILE__)}/../../../config/environment.rb"
-require "#{File.dirname(__FILE__)}/lib/pg_trigger_count"
-require 'lib/migration_generator'
-Dir['lib/tasks/**/*.rake'].each { |rake| load rake }
+require 'rake'
+require 'rake/testtask'
+require 'rake/rdoctask'
+
+desc 'Default: run unit tests.'
+task :default => :test
+
+desc 'Test the pg_trigger_count plugin.'
+Rake::TestTask.new(:test) do |t|
+  t.libs << 'lib'
+  t.libs << 'test'
+  t.pattern = 'test/**/*_test.rb'
+  t.verbose = true
+end
+
+desc 'Generate documentation for the pg_trigger_count plugin.'
+Rake::RDocTask.new(:rdoc) do |rdoc|
+  rdoc.rdoc_dir = 'rdoc'
+  rdoc.title    = 'PgTriggerCount'
+  rdoc.options << '--line-numbers' << '--inline-source'
+  rdoc.rdoc_files.include('README')
+  rdoc.rdoc_files.include('lib/**/*.rb')
+end
