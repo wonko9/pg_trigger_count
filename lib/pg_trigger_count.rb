@@ -1,5 +1,6 @@
 $:.unshift(File.dirname(__FILE__))
 
+require 'active_record'
 require 'active_record_extensions'
 require 'pg_trigger_count/reflection'
 require 'pg_trigger_count/generator'
@@ -13,18 +14,20 @@ class PgTriggerCount
       connection.execute("select memcache_get('test')")
       @use_pgmemcache = true
     rescue ActiveRecord::StatementInvalid => e
-      pp "PgMemcache not installed"
       @use_pgmemcache = false
     end
   end
 
-  def self.add_counted_class(klass)
-    pp "ADAMDEBUG: ADDING #{klass}"
-    @counted_classes ||= []
-    @counted_classes << klass unless @counted_classes.include?(klass)
+  def self.add_counted_model(klass)
+    @counted_models ||= []
+    @counted_models << klass unless @counted_models.include?(klass)
   end
 
-  def self.counted_classes
-    @counted_classes
+  def self.counted_models
+    @counted_models
+  end
+
+  def self.generator
+    PgTriggerCount::Generator.new(counted_models.collect(&:trigger_counts).flatten)
   end
 end

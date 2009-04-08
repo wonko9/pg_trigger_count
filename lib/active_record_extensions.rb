@@ -7,7 +7,10 @@ module ActiveRecord
       options[:count_column]  ||= count_column
       options[:counted_class] ||= options[:class_name] if options[:class_name]
       options[:counter_class]   = self
-      PgTriggerCount::Reflection.add_reflection(options)
+      
+      reflection = PgTriggerCount::Reflection.new(options)
+      
+      PgTriggerCount.add_counted_model(reflection.counted_class)
     end
 
     def self.define_count_method(counts_association,count_method_name,count_column)
@@ -16,11 +19,14 @@ module ActiveRecord
       end
     end
 
-    def self.pg_trig_reflections
-      @pgtc_reflections
+    def self.trigger_counts
+      @trigger_counts
     end
-
-
+    
+    def self.pgtc_generator
+      @pgtc_generator ||= PgTriggerCount::Generator.new(trigger_counts)
+    end
+    
     # def count_for(reflection)
     #   self.class.connection.select_value(reflection.select_count_for(self)) || self.class.connection.select_value(reflection.recalc_count_for(self))
     # end

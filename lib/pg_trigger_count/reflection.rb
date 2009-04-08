@@ -1,17 +1,6 @@
 class PgTriggerCount
   class Reflection
 
-
-    def self.add_reflection(options)
-      reflection = new(options)
-      class_reflections = reflection.counted_class.instance_variable_get("@pgtc_reflections")
-      class_reflections ||= []
-      class_reflections << reflection
-      reflection.counted_class.instance_variable_set("@pgtc_reflections",class_reflections)
-      pp "ADAMDEBUG: REFLECTION for #{reflection.counted_class}"
-      PgTriggerCount.add_counted_class(reflection.counted_class)
-    end
-
     attr_accessor :options, :counter_class, :counted_class, :counts_class, :count_column,
                   :count_method_name, :use_pgmemcache, :scope, :counter_keys, :counted_keys, :counts_keys
 
@@ -91,6 +80,14 @@ class PgTriggerCount
       if connection and (options.has_key?(:use_pgmemcache)) or options[:use_pgmemcache]
         @use_pgmemcache = PgTriggerCount.use_pgmemcache?(connection)
       end
+      
+      add_to_model_class
+    end
+    
+    def add_to_model_class
+      trigger_counts = counted_class.instance_variable_get("@trigger_counts") || []
+      trigger_counts << self
+      counted_class.instance_variable_set("@trigger_counts",trigger_counts)
     end
 
     # def define_count_method
