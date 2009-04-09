@@ -101,7 +101,7 @@ class ReflectionGeneratorTest < Test::Unit::TestCase
     should "generate function" do
       # pp "ADAMDEBUG: ", @generator.reflections.first.insert_count_sql
       
-      sql = @generator.generate_function
+      sql = @generator.generate_function_for_counted_class(Message)
       f = File.open("../tmp/pg_trig.sql", "w")
       f.write(sql)
       f.write("\n\n")
@@ -137,22 +137,22 @@ class ReflectionGeneratorTest < Test::Unit::TestCase
       end
     end
     
-    context "migrations" do
-      
-      setup do
-        FileUtils.mkdir_p(fake_rails_root)
-        @original_files = file_list
-      end
-      teardown do
-        FileUtils.rm_r(fake_rails_root)
-      end
-      
-      should "create migration" do
-        Rails::Generator::Scripts::Generate.new.run(["pg_trigger_count","generate"], :destination => fake_rails_root)
-        new_file = (file_list - @original_files).first
-        pp "ADAMDEBUG: #{new_file}"
-      end
-    end
+    # context "migrations" do
+    #   
+    #   setup do
+    #     FileUtils.mkdir_p(fake_rails_root)
+    #     @original_files = file_list
+    #   end
+    #   teardown do
+    #     FileUtils.rm_r(fake_rails_root)
+    #   end
+    #   
+    #   should "create migration" do
+    #     Rails::Generator::Scripts::Generate.new.run(["pg_trigger_count","generate"], :destination => fake_rails_root)
+    #     new_file = (file_list - @original_files).first
+    #     pp "ADAMDEBUG: #{new_file}"
+    #   end
+    # end
     
 
   end
