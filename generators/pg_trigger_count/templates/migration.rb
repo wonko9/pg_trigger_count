@@ -1,5 +1,4 @@
 class <%= migration_name %> < ActiveRecord::Migration
-
   def self.up
   <%- new_tables.each do |table_name, columns| -%>
     create_table :<%= table_name %> do |t|
@@ -13,12 +12,18 @@ class <%= migration_name %> < ActiveRecord::Migration
     add_column :<%=table_name %>, :<%= column[:name] %>, :<%=column[:type]%>
   <%- end -%>
   
-  <%- functions.each do |function| -%>
+  <%- create_functions.each do |function| -%>
     function = <<-SQL
-      <%=function%>
+      <%= function %>
     SQL
     ActiveRecord::Base.connection.execute(function)
-  <% end %>
+  <%- end -%>
+  <%- create_triggers.each do |trigger| -%>
+    trigger = <<-SQL
+      <%= trigger %>
+    SQL
+    ActiveRecord::Base.connection.execute(trigger)
+  <%- end -%>
   
   end
 
@@ -28,6 +33,9 @@ class <%= migration_name %> < ActiveRecord::Migration
   <%- end -%>
   <%- new_columns.each do |table_name, column| -%>
     remove_column :<%=table_name %>, :<%= column[:name] %>
+  <%- end -%>
+  <%- drop_functions.each do |function| -%>
+    ActiveRecord::Base.connection.execute("<%= function %>")
   <%- end -%>
   end
 end

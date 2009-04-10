@@ -37,7 +37,7 @@ class PgTriggerCount
 
     def generate_trigger(counted_class)
       <<-TRIG
-        CREATE TRIGGER #{function_name}
+        CREATE TRIGGER #{function_name(counted_class)}
         AFTER INSERT OR UPDATE OR DELETE ON #{counted_class.table_name}
         FOR EACH ROW EXECUTE PROCEDURE #{function_name(counted_class)}();
       TRIG
@@ -56,6 +56,16 @@ class PgTriggerCount
     
     def generate_functions
       reflections_by_counted_class.keys.collect{|counted_class| generate_function(counted_class)}
+    end
+    
+    def generate_drop_functions
+      reflections_by_counted_class.keys.collect{|counted_class| generate_drop_function(counted_class)}      
+    end
+    
+    def generate_missing_triggers
+      missing_triggers = reflections_by_counted_class.keys.reject do |counted_class| 
+        ActiveRecord::Base.connection.select_value("SELECT tgname from pg_trigger WHERE tgname = '#{function_name(counted_class)}'")
+      end.collect{|counted_class| generate_trigger(counted_class) }
     end
 
     def counts_classes

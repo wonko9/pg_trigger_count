@@ -1,6 +1,7 @@
 $:.unshift(File.dirname(__FILE__))
 
 require 'active_record'
+require 'active_support'
 require 'active_record_extensions'
 require 'pg_trigger_count/reflection'
 require 'pg_trigger_count/generator'

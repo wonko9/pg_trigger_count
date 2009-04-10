@@ -15,7 +15,13 @@ module ActiveRecord
 
     def self.define_count_method(counts_association,count_method_name,count_column)
       define_method "#{count_method_name}" do
-        self.send(counts_association).send(count_column)
+        assoc = self.send(counts_association)
+        if assoc
+          assoc.send(count_column)
+        else
+          0
+          #regenerate
+        end
       end
     end
 
