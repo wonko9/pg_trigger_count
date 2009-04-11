@@ -56,7 +56,7 @@ class GeneratorTest < Test::Unit::TestCase
       CreateTables.up
       # Message.stubs(:connection).returns(stub(:execute => true))    
       @reflection = PgTriggerCount::Reflection.new(:count_column => :messages, :counter_class => "User")
-      @generator = PgTriggerCount::ReflectionGenerator.new(@reflection)
+      @generator = PgTriggerCount::Generator::Reflection.new(@reflection)
     end
     
     should "work" do
@@ -76,7 +76,7 @@ class GeneratorTest < Test::Unit::TestCase
     setup do
       Message.stubs(:connection).returns(stub(:execute => true))    
       @reflection = PgTriggerCount::Reflection.new(:count_column => :messages, :counter_class => "User", :as => :sender)
-      @generator = PgTriggerCount::ReflectionGenerator.new(@reflection)
+      @generator = PgTriggerCount::Generator::Reflection.new(@reflection)
     end
     
     should "work" do
@@ -101,7 +101,7 @@ class GeneratorTest < Test::Unit::TestCase
     should "generate function" do
       # pp "ADAMDEBUG: ", @generator.reflections.first.insert_count_sql
       
-      sql = @generator.generate_function(Message)
+      sql = @generator.generate_functions
       f = File.open("../tmp/pg_trig.sql", "w")
       f.write(sql)
       f.write("\n\n")

@@ -17,6 +17,7 @@ class PgTriggerCountGenerator < Rails::Generator::NamedBase
           :create_functions => @generator.generate_functions,
           :drop_functions   => @generator.generate_drop_functions,
           :create_triggers  => @generator.generate_missing_triggers,
+          :invalidate_cache => @generator.generate_invalidate_cache_function,
         }, :migration_file_name => "create_pg_trigger_count_#{now}"
       end
 

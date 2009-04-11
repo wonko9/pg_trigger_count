@@ -1,7 +1,7 @@
 class PgTriggerCount
   class Reflection
 
-    attr_accessor :options, :counter_class, :counted_class, :counts_class, :count_column,
+    attr_accessor :options, :counter_class, :counted_class, :counts_class, :count_column, :cache,
                   :count_method_name, :use_pgmemcache, :scope, :counter_keys, :counted_keys, :counts_keys
 
     def initialize(options)
@@ -15,6 +15,7 @@ class PgTriggerCount
       @counter_keys      = {}
       @counted_keys      = {}
       @counts_keys       = {}
+      @cache             = options[:cache] || defined?(CACHE) ? CACHE : nil
 
       @counts_class_name = "#{counter_class}_counts".classify
       begin
@@ -22,7 +23,7 @@ class PgTriggerCount
       rescue NameError
         @counts_class = Class.new(ActiveRecord::Base)
         Object.const_set(@counts_class_name,@counts_class)
-        puts "ERROR: #{@counts_class_name} has not been created. Please run rake pgtc:generate_migration" unless @counts_class.table_exists?
+        puts "ERROR: #{@counts_class_name} has not been created. Please run ./script/generate pg_trigger_count migration" unless @counts_class.table_exists?
       end
 
       if options[:as]
@@ -51,63 +52,25 @@ class PgTriggerCount
       end
 
       # set up active record reflection
-      counter_class.has_one counts_association, :class_name => counts_class.to_s unless respond_to? counts_class.table_name      
-      counter_class.define_count_method(counts_association,count_method_name,count_column)            
-
-      # @count_by_keys = options[:by]
-      #
-      # if
-      #   options[:by].each do |b|
-      #     @foreign_key_map[b.to_s] = b.to_s
-      #   end
-      # elsif options[:as]
-      #   @foreign_key_map = {
-      #     "#{options[:as]}_id"       => 'id',
-      #     "#{options[:as]}_type"     => "class"
-      #   }
-      # elsif options[:foreign_key]
-      #   @foreign_key_map = {
-      #     options[:foreign_key].to_s => 'id'
-      #   }
-      # else
-      #   @foreign_key_map = {
-      #     "#{klass.to_s.downcase}_id" => 'id'
-      #   }
-      # end
-      #
-      # options[:by] ||= @foreign_key_map.keys
+      counter_class.has_one counts_association, :class_name => counts_class.to_s unless respond_to? counts_class.table_name
+      if counts_class.respond_to?(:record_cache)
+        counts_class.record_cache :by => counts_keys.keys.first
+      end
+      counter_class.define_pg_count_method(self)
 
       if connection and (options.has_key?(:use_pgmemcache)) or options[:use_pgmemcache]
         @use_pgmemcache = PgTriggerCount.use_pgmemcache?(connection)
       end
-      
+
       add_to_model_class
     end
-    
+
     def add_to_model_class
       trigger_counts = counted_class.instance_variable_get("@trigger_counts") || []
       trigger_counts << self
       counted_class.instance_variable_set("@trigger_counts",trigger_counts)
     end
 
-    # def define_count_method
-    #   pp "ADAMDEBUG: #{count_method_name}"
-    #   
-    #   counter_class.send(:define_method,"#{count_method_name}") do
-    #     counts_association.send(count_column)
-    # 
-    #     # if use_cache?
-    #     #   return counter_class.instance_variable_get("@#{reflection.method_name}") if counter_class.instance_variable_get("@#{reflection.method_name}")
-    #     #   cache_key = reflection.cache_key_for(counter_class)
-    #     #   counter_class.instance_variable_set("@#{reflection.method_name}", CACHE.get_or_set(cache_key) do
-    #     #     count_for(reflection)
-    #     #   end.to_i)
-    #     # else
-    #       # counts_association.send(count_column)
-    #     # end
-    #   end
-    # end
-    
     def counts_association
       counts_class.table_name
     end
@@ -116,24 +79,12 @@ class PgTriggerCount
       @use_pgmemcache
     end
 
+    def cache_key_prefix
+      "'pgtc:#{counts_class}:'"
+    end
+
     def count_by_keys
       counted_keys.keys
-    end
-
-    def generator
-
-    end
-
-    def connection
-      counted_class.connection
-    end
-
-    def self.create_counts_class(klass)
-      eval %"class #{klass} < ActiveRecord::Base;end"
-    end
-
-    def quote(to_quote)
-      connection.quote(to_quote.to_s)
     end
 
     def method_missing(name, *args)
@@ -146,25 +97,20 @@ class PgTriggerCount
     end
 
     def generator
-      @generator ||= ReflectionGenerator.new(self)
+      @generator ||= PgTriggerCount::Generator::Reflection.new(self)
     end
 
-    def select_count_for(record)
-      select_conditions = counts_keys.collect{|key,keys| "#{counts_table}.#{key}='#{record.send(keys[:counter_key])}'"}
-      "SELECT #{count_column} FROM #{counts_table} WHERE #{select_conditions}"
+    def update_count_for(record)
+      target = {}
+      counter_keys.keys.each{|k| target[k]=record.send(k) }
+      if (connection.update(generator.update_count_from_select_sql(target)) < 1)
+        connection.insert(generator.insert_count_from_select_sql(target))
+      end
     end
 
-    #
-    # def recalc_count_for(record)
-    #   "SELECT #{pgtrig.recalc_name}("+ pgtrig.by.collect{|b| quote(record.send(foreign_key_map[b.to_s]))}.join(',')+")"
-    # end
-    #
-    # def cache_key_for(record)
-    #   "#{pgtrig.count_key_prefix}:#{pgtrig.by.collect{|b|"#{record.send(foreign_key_map[b.to_s])}"}.join(pgtrig.separator)}"
-    # end
+    def connection
+      counted_class.connection
+    end
 
-    # def name
-    #   @pgtrig.trig_name
-    # end
   end
 end

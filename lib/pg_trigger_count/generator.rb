@@ -5,80 +5,37 @@ class PgTriggerCount
     attr_accessor :reflections
 
     def initialize(reflections)
-      @reflections = [reflections].flatten.collect{|r|PgTriggerCount::ReflectionGenerator.new(r)}
+      @reflections = [reflections].flatten.collect{|r|PgTriggerCount::Generator::Reflection.new(r)}
     end
-    
-    def function_name(counted_class)
-      "tcfunc_#{counted_class.table_name}"      
-    end
-
-    def generate_drop_function(counted_class)
-      "DROP FUNCTION #{function_name(counted_class)}() CASCADE"
-    end
-
-    def begin_function_sql(counted_class)
-      "CREATE OR REPLACE FUNCTION #{function_name(counted_class)}() RETURNS TRIGGER AS $#{function_name(counted_class)}$
-      DECLARE
-        up_count    integer;
-        new_count   RECORD;
-        new_total   integer;
-        cache_data  varchar;
-      BEGIN
-      "
-    end
-
-    def end_function_sql(counted_class)
-      "
-        RETURN NEW;
-      END;
-      $#{function_name(counted_class)}$ LANGUAGE plpgsql;
-      "
-    end
-
-    def generate_trigger(counted_class)
-      <<-TRIG
-        CREATE TRIGGER #{function_name(counted_class)}
-        AFTER INSERT OR UPDATE OR DELETE ON #{counted_class.table_name}
-        FOR EACH ROW EXECUTE PROCEDURE #{function_name(counted_class)}();
-      TRIG
-    end
-
-    def drop_and_generate_trigger(counted_class)
-      "DROP TRIGGER #{function_name(counted_class)};
-      #{generate_trigger(counted_class)}"
-    end
-
-    def generate_function(counted_class)
-      begin_function_sql(counted_class) <<
-      reflections_by_counted_class[counted_class].collect{ |r| r.generate_sql }.join("\n") <<
-      end_function_sql(counted_class)
-    end
-    
-    def generate_functions
-      reflections_by_counted_class.keys.collect{|counted_class| generate_function(counted_class)}
-    end
-    
-    def generate_drop_functions
-      reflections_by_counted_class.keys.collect{|counted_class| generate_drop_function(counted_class)}      
-    end
-    
-    def generate_missing_triggers
-      missing_triggers = reflections_by_counted_class.keys.reject do |counted_class| 
-        ActiveRecord::Base.connection.select_value("SELECT tgname from pg_trigger WHERE tgname = '#{function_name(counted_class)}'")
-      end.collect{|counted_class| generate_trigger(counted_class) }
-    end
-
+        
     def counts_classes
       reflections.collect{|reflection| reflection.counts_class}.uniq
     end
 
-    def reflections_by_counted_class
-      reflections_by_counted_class = {}
-      reflections.each do |reflection|
-        reflections_by_counted_class[reflection.counted_class] ||= []
-        reflections_by_counted_class[reflection.counted_class] << reflection
+    def counted_table_generators
+      @reflections_by_counted_class ||= begin
+        reflections_by_counted_class = {}
+        reflections.each do |reflection|
+          if reflections_by_counted_class[reflection.counted_class]
+            reflections_by_counted_class[reflection.counted_class].add reflection
+          else
+            reflections_by_counted_class[reflection.counted_class] ||= PgTriggerCount::Generator::CountedTable.new(reflection)
+          end
+        end
+        reflections_by_counted_class
       end
-      reflections_by_counted_class
+    end
+
+    def generate_functions
+      counted_table_generators.values.collect{|g| g.generate_function}
+    end
+    
+    def generate_drop_functions
+      counted_table_generators.values.collect{|g| g.generate_drop_function}      
+    end
+    
+    def generate_missing_triggers
+      counted_table_generators.values.reject(&:trigger_exists?).collect{|g| g.generate_trigger }
     end
 
     def reflections_by_counts_class
@@ -146,23 +103,28 @@ class PgTriggerCount
       end
       definitions
     end
-
-    # def generate_migrations
-    #   migrations = ''
-    #   counted_columns = reflections.collect(&:counted_column)
-    #   if reflections.first.counts_class.table_exists?
-    #     migrations = "create_table :features do |t|\n"
-    #     keys = reflections.collect do |reflection|
-    #       reflection.counts_keys.keys
-    #     end.flatten.uniq
-    #     keys.each do |key|
-    #       migration << ""
-    #     end
-    #
-    #   else
-    #   end
-    #
-    # end
-
+    
+    def generate_invalidate_cache_function
+      "
+      CREATE OR REPLACE FUNCTION invalidate_cache(model VARCHAR, key VARCHAR, id VARCHAR) RETURNS BOOL AS $$
+      DECLARE
+        cache_version VARCHAR;
+        cache_key VARCHAR;
+        pass BOOL;
+      BEGIN
+        -- Go get the cache_Version
+        cache_version := 0;
+        cache_key := model || '_' || cache_version || '_0:' || key || ':' || id;
+        INSERT INTO pg_trigger_cache_keys (foo) VALUES (cache_key);
+        PERFORM memcache_delete(cache_key);
+        RETURN true;
+       EXCEPTION WHEN OTHERS THEN
+        INSERT INTO pg_trigger_cache_keys (foo) VALUES ('fail');
+        RETURN false;
+      END;
+      $$ LANGUAGE plpgsql;
+      "
+    end
+    
   end
 end

@@ -5,7 +5,8 @@ require 'active_support'
 require 'active_record_extensions'
 require 'pg_trigger_count/reflection'
 require 'pg_trigger_count/generator'
-require 'pg_trigger_count/reflection_generator'
+require 'pg_trigger_count/generator/reflection'
+require 'pg_trigger_count/generator/counted_table'
 
 class PgTriggerCount
 

@@ -24,7 +24,10 @@ class <%= migration_name %> < ActiveRecord::Migration
     SQL
     ActiveRecord::Base.connection.execute(trigger)
   <%- end -%>
-  
+    function = <<-SQL
+      <%= invalidate_cache %>
+    SQL
+    ActiveRecord::Base.connection.execute(function)
   end
 
   def self.down
