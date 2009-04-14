@@ -2,22 +2,21 @@ class PgTriggerCount
   class Reflection
 
     attr_accessor :options, :counter_class, :counted_class, :counts_class, :count_column, :cache,
-                  :count_method_name, :use_pgmemcache, :scope, :counter_keys, :counted_keys, :counts_keys
+                  :count_method_name, :scope, :counter_keys, :counted_keys, :counts_keys
 
     def initialize(options)
       @options           = options
       @count_column      = "#{options[:count_column]}_count"
       @counter_class     = options[:counter_class].to_s.constantize
       @counted_class     = options[:counted_class] ? options[:counted_class].to_s.constantize : options[:count_column].to_s.classify.constantize
-
       @count_method_name = options[:count_method_name] || count_column
       @scope             = options[:scope] || {}
+      @counts_class_name = "#{counter_class}_counts".classify
+      @cache             = options[:cache] || defined?(CACHE) ? CACHE : nil
       @counter_keys      = {}
       @counted_keys      = {}
       @counts_keys       = {}
-      @cache             = options[:cache] || defined?(CACHE) ? CACHE : nil
 
-      @counts_class_name = "#{counter_class}_counts".classify
       begin
         @counts_class    = options[:counts_class] || @counts_class_name.constantize
       rescue NameError
@@ -29,8 +28,8 @@ class PgTriggerCount
       if options[:as]
         @counter_keys = {
           'id' => {
-            :counter_key    => 'id',
-            :counts_key     => "#{counter_class.name.underscore}_id",
+            :counter_key => 'id',
+            :counts_key  => "#{counter_class.name.underscore}_id",
             :counted_key => "#{options[:as]}_id",
           }
         }
@@ -38,8 +37,8 @@ class PgTriggerCount
       else
         @counter_keys = {
           'id'=> {
-            :counter_key    => 'id',
-            :counts_key     => "#{counter_class.name.underscore}_id",
+            :counter_key => 'id',
+            :counts_key  => "#{counter_class.name.underscore}_id",
             :counted_key => "#{counter_class.name.underscore}_id",
           }
         }
@@ -48,19 +47,19 @@ class PgTriggerCount
       # setup lookups for each type of table
       @counter_keys.each do |counter_key,keys|
         @counted_keys[keys[:counted_key]] = keys
-        @counts_keys[keys[:counts_key]]      = keys
+        @counts_keys[keys[:counts_key]]   = keys
+      end
+
+      if connection and options[:record_cache] and counts_class.respond_to?(:record_cache)
+        @record_cache = PgTriggerCount.use_pgmemcache?(connection)
       end
 
       # set up active record reflection
       counter_class.has_one counts_association, :class_name => counts_class.to_s unless respond_to? counts_class.table_name
-      if counts_class.respond_to?(:record_cache)
+      if record_cache?
         counts_class.record_cache :by => counts_keys.keys.first
       end
       counter_class.define_pg_count_method(self)
-
-      if connection and (options.has_key?(:use_pgmemcache)) or options[:use_pgmemcache]
-        @use_pgmemcache = PgTriggerCount.use_pgmemcache?(connection)
-      end
 
       add_to_model_class
     end
@@ -75,8 +74,8 @@ class PgTriggerCount
       counts_class.table_name
     end
 
-    def use_pgmemcache?
-      @use_pgmemcache
+    def record_cache?
+      @record_cache
     end
 
     def cache_key_prefix

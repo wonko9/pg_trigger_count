@@ -5,6 +5,10 @@ class PgTriggerCountGenerator < Rails::Generator::NamedBase
     super    
   end            
   
+  def banner
+    "Usage: #{$0}"
+  end
+
   def manifest
     @generator = PgTriggerCount.generator
     record do |m|

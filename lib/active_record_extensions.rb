@@ -20,7 +20,9 @@ module ActiveRecord
           assoc.send(reflection.count_column)
         else
           reflection.update_count_for(self)
-          UserCount.cached_index("by_#{reflection.counts_keys.keys.first}").invalidate(self.send(reflection.counter_keys.keys.first))
+          if reflection.record_cache?
+            UserCount.cached_index("by_#{reflection.counts_keys.keys.first}").invalidate(self.send(reflection.counter_keys.keys.first))
+          end
           if (self.send(reflection.counts_association) && self.send(reflection.counts_association).reload) || self.send(reflection.counts_association,true)
             self.send(reflection.counts_association).send(reflection.count_column)
           else
@@ -41,9 +43,6 @@ module ActiveRecord
     
     def self.trigger_exists?(trigger)
       ActiveRecord::Base.connection.select_value("SELECT tgname from pg_trigger WHERE tgname='#{trigger}'")            
-    end
-    
+    end    
   end
-
-
 end
