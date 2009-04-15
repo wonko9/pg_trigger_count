@@ -12,11 +12,11 @@ class PgTriggerCount::Generator
       if target.is_a?(Hash)
         target = target.dup.stringify_keys
         conditions += counted_keys.collect do |key,keys|
-          "#{counted_table}.#{key}='#{target[keys[:counter_key].to_s]}'"
+          "#{counted_table}.#{key} is not distinct from '#{target[keys[:counter_key].to_s]}'"
         end
       else
         conditions += counted_keys.collect do |key,keys|
-          "#{counted_table}.#{key}=#{target}.#{key}"
+          "#{counted_table}.#{key} is not distinct from #{target}.#{key}"
         end
       end
       conditions.join(" AND ")
@@ -44,11 +44,11 @@ class PgTriggerCount::Generator
       if target.is_a?(Hash)
         target = target.dup.stringify_keys
         conditions = reflection.counts_keys.collect do |count_key, keys|
-          "#{reflection.counts_table}.#{count_key}='#{target[keys[:counter_key]]}'"
+          "#{reflection.counts_table}.#{count_key} is not distinct from '#{target[keys[:counter_key]]}'"
         end
       else
         conditions = reflection.counts_keys.collect do |count_key, keys|
-          "#{reflection.counts_table}.#{count_key}=#{target}.#{keys[:counted_key]}"
+          "#{reflection.counts_table}.#{count_key} is not distinct from #{target}.#{keys[:counted_key]}"
         end
       end
       conditions << "#{reflection.counts_table}.#{reflection.count_column} IS NOT NULL" if check_for_value
@@ -67,16 +67,41 @@ class PgTriggerCount::Generator
     end
 
     def increment_counts_sql(target,increment=1)
-      "UPDATE #{counts_table}
+      sql = "UPDATE #{counts_table}
       SET #{count_column}=#{count_column}#{increment < 0 ? '' : '+'}#{increment}
       WHERE #{update_count_conditions(target)}"
+      sql
     end
 
 
+    # NEW.#{key} <=> OLD.#{key}"
     def record_changed_conditions
-      conditions = (reflection.counter_keys.keys + scope.keys).collect do |key|
-        "NEW.#{key} != OLD.#{key}"
+      conditions = (reflection.counted_keys.keys + scope.keys).collect do |key|
+        "NEW.#{key} IS DISTINCT FROM OLD.#{key}"
       end.join(" OR ")
+      conditions
+    end
+
+    def show_record_changed_conditions
+      conditions = (reflection.counted_keys.keys + scope.keys).collect do |key|
+        "'#{key}: '||coalesce(NEW.#{key}::text,'NULL') || '!=' || coalesce(OLD.#{key}::text,'NULL')"
+      end.join(" || ' ' ||")
+      conditions
+    end
+
+    def show_record_data(target="NEW")
+      conditions = (reflection.counted_keys.keys + scope.keys).collect do |key|
+        "'#{key}: ' || coalesce(#{target}.#{key}::text,'NULL')"
+      end.join(" || ' ' ||")
+      conditions
+    end
+
+    def debug
+      true
+    end
+
+    def sql_log_debug(op,message)
+      "INSERT INTO logs (log) VALUES ('#{op} counted:#{counted_class} counter:#{counter_class} ' || #{message});" if debug
     end
 
     def cache_invalidation_sql
@@ -85,25 +110,31 @@ class PgTriggerCount::Generator
         IF (TG_OP = 'DELETE') THEN
           PERFORM invalidate_cache('#{counts_class}','by_#{counts_keys.keys.first}',OLD.#{key}::text);
         ELSE
-          PERFORM invalidate_cache('#{counts_class}','by_#{counts_keys.keys.first}',NEW.#{key}::text);        
-        END IF;              
+          PERFORM invalidate_cache('#{counts_class}','by_#{counts_keys.keys.first}',NEW.#{key}::text);
+        END IF;
        EXCEPTION WHEN OTHERS THEN      -- Ignore errors
-       END;"      
+       END;"
     end
 
     def generate_sql
       "
       IF (TG_OP = 'DELETE') THEN
         #{increment_counts_sql("OLD",-1)};
+        #{sql_log_debug('DELETE',show_record_data('OLD'))}
       ELSIF (TG_OP = 'INSERT') THEN
         #{increment_counts_sql("NEW",1)};
+        #{sql_log_debug('INSERT',show_record_data('NEW'))}
       ELSIF (TG_OP = 'UPDATE') THEN
         IF #{record_changed_conditions} THEN
           #{increment_counts_sql("OLD",-1)};
+          GET DIAGNOSTICS up_count = ROW_COUNT;
+          #{sql_log_debug('UPDATE',show_record_changed_conditions + " || ' rows:' || up_count::text || ' ' || '" + increment_counts_sql("OLD",-1)+"'")}
           #{increment_counts_sql("NEW",1)};
         ELSE
-          RETURN NEW;
+          #{sql_log_debug('UPDATE NO CHANGE',show_record_changed_conditions)}
         END IF;
+      ELSE
+        #{sql_log_debug('NOOP',"TG_OP")}
       END IF;
 
       GET DIAGNOSTICS up_count = ROW_COUNT;

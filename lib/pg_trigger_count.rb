@@ -26,7 +26,7 @@ class PgTriggerCount
   end
 
   def self.counted_models
-    @counted_models
+    @counted_models || []
   end
 
   def self.generator

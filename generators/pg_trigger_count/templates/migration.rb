@@ -1,5 +1,7 @@
 class <%= migration_name %> < ActiveRecord::Migration
-  def self.up
+  def self.up    
+    ActiveRecord::Base.connection.execute("create language 'plpgsql'") rescue ActiveRecord::StatementInvalid
+    
   <%- new_tables.each do |table_name, columns| -%>
     create_table :<%= table_name %> do |t|
     <%- columns.values.each do |column| -%>

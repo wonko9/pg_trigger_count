@@ -126,5 +126,17 @@ class PgTriggerCount
       "
     end
     
+    def migration_vars(klass_name="CreatePgTriggerCount#{Time.now.to_i}")
+      {
+        :migration_name   => klass_name,
+        :new_tables       => self.new_counts_table_definitions,
+        :new_columns      => self.new_counts_column_definitions,
+        :create_functions => self.generate_functions,
+        :drop_functions   => self.generate_drop_functions,
+        :create_triggers  => self.generate_missing_triggers,
+        :invalidate_cache => self.generate_invalidate_cache_function      
+      }      
+    end
+    
   end
 end
