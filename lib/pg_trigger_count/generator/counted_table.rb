@@ -25,7 +25,12 @@ class PgTriggerCount::Generator
     def begin_function_sql
       "CREATE OR REPLACE FUNCTION #{function_name}() RETURNS TRIGGER AS $#{function_name}$
       DECLARE
-        up_count integer;
+        up_count1 integer;
+        up_count2 integer;
+        up_count3 integer;
+        up_count4 integer;
+        up_count5 integer;
+        inc_count integer;
       BEGIN
       "
     end

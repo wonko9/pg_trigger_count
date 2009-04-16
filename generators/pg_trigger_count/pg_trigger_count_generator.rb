@@ -13,9 +13,9 @@ class PgTriggerCountGenerator < Rails::Generator::NamedBase
     @generator = PgTriggerCount.generator
     record do |m|
       now = Time.now.to_i
-      # if @generator.new_counts_table_definitions.any? or @generator.new_counts_column_definitions.any?
+      if @generator.new_counts_table_definitions.any? or @generator.new_counts_column_definitions.any?
         m.migration_template 'migration.rb', 'db/migrate', :assigns => @generator.migration_vars, :migration_file_name => "create_pg_trigger_count_#{now}"
-      # end
+      end
 
     end
   end

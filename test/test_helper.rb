@@ -61,43 +61,28 @@ Network.pg_trigger_count :messages
 User.pg_trigger_count    :messages, :as => :sender
 
 
-class Test::Unit::TestCase
-
-  def fake_rails_root
-    File.dirname(__FILE__) + '/../tmp/rails_root'
-  end
-
-  def file_list
-    Dir.glob(File.join(fake_rails_root, "*"))
-  end
-
-  def setup_database
-    PgtcMigration::CreateTables.up
-    migration = generate_migration
-    eval migration
-    CreatePgTriggerCount.up
-  end
-
-  def teardown_database
-    PgtcMigration::CreateTables.down
-    CreatePgTriggerCount.down
-  end
+class PgtcMigration
   
-
-  def generate_migration
+  def self.generate_migration
     @generator ||= PgTriggerCount.generator
     vars = @generator.migration_vars("CreatePgTriggerCount")
     b = binding
     vars.each { |k,v| eval "#{k} = vars[:#{k}]", b }
     ERB.new(File.read(File.dirname(__FILE__) +"/../generators/pg_trigger_count/templates/migration.rb"),nil,'-').result(b)
   end
-
-end
-
-class PgtcMigration
+  
 
   class CreateTables < ActiveRecord::Migration
     def self.up
+      
+      begin
+        create_table :logs do |t|
+          t.column :log, :string, :limit => 2000
+          t.timestamps
+        end
+      rescue ActiveRecord::StatementInvalid
+      end
+      
       create_table :networks do |t|
         t.timestamps
       end
@@ -150,5 +135,26 @@ class PgtcMigration
       drop_table :user_counts
     end
   end
+end
 
+class Test::Unit::TestCase
+  def fake_rails_root
+    File.dirname(__FILE__) + '/../tmp/rails_root'
+  end
+
+  def file_list
+    Dir.glob(File.join(fake_rails_root, "*"))
+  end
+
+  def setup_database
+    PgtcMigration::CreateTables.up
+    migration = PgtcMigration.generate_migration
+    eval migration
+    CreatePgTriggerCount.up
+  end
+
+  def teardown_database
+    PgtcMigration::CreateTables.down
+    CreatePgTriggerCount.down
+  end
 end

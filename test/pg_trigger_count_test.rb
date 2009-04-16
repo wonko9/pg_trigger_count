@@ -6,7 +6,6 @@ class PgTriggerCountTest < Test::Unit::TestCase
   # context "Basic Reflection" do
   #   
   #   setup do
-  #     Message.stubs(:connection).returns(stub(:execute => true))    
   #     @reflection = PgTriggerCount::Reflection.new(:count_column => :messages, :counter_class => "User")
   #   end
   #   
@@ -41,18 +40,17 @@ class PgTriggerCountTest < Test::Unit::TestCase
   #   end
   #       
   # end
-  # 
-  # context "reflection with as" do
-  #   setup do
-  #     Message.stubs(:connection).returns(stub(:execute => true))    
-  #     @reflection = PgTriggerCount::Reflection.new(:count_column => :messages, :counter_class => "User", :as => :sender)
-  #   end
-  # 
-  #   should "have right counter_keys" do
-  #     assert_equal @reflection.counter_keys, {"id"=>{:counter_key=>"id", :counts_key=>"user_id", :counted_key=>"sender_id"}}
-  #   end
-  #   
-  # end
+  
+  context "reflection with as" do
+    setup do
+      @reflection = PgTriggerCount::Reflection.new(:count_column => :messages, :counter_class => "User", :as => :sender)
+    end
+  
+    should "have right counter_keys" do
+      assert_equal @reflection.counter_keys, {"id"=>{:counter_key=>"id", :counts_key=>"user_id", :counted_key=>"sender_id"}}
+    end
+    
+  end       
   
   context "full" do
     
@@ -70,14 +68,11 @@ class PgTriggerCountTest < Test::Unit::TestCase
     should "have scope" do
       @n1 = Network.find @n1.id
       assert_equal 0, @n1.users_count
-      pp "ADAMDEBUG: ", NetworkCount.find_by_sql('select * from network_counts')
       @u1.update_attribute :state, 'active'
       @n1 = Network.find @n1.id
       assert_equal 1, @n1.users_count
-      pp "ADAMDEBUG: ", NetworkCount.find_by_sql('select * from network_counts')
       @u1.update_attribute :state, 'passive'
       @n1 = Network.find @n1.id
-      pp "ADAMDEBUG: ", NetworkCount.find_by_sql('select * from network_counts')
       assert_equal 0, @n1.users_count
     end
             

@@ -10,7 +10,7 @@ class PgTriggerCount
       @counter_class     = options[:counter_class].to_s.constantize
       @counted_class     = options[:counted_class] ? options[:counted_class].to_s.constantize : options[:count_column].to_s.classify.constantize
       @count_method_name = options[:count_method_name] || count_column
-      @scope             = options[:scope] || {}
+      @scope             = stringify_hash(options[:scope]) || {}
       @counts_class_name = "#{counter_class}_counts".classify
       @cache             = options[:cache] || defined?(CACHE) ? CACHE : nil
       @counter_keys      = {}
@@ -62,6 +62,15 @@ class PgTriggerCount
       counter_class.define_pg_count_method(self)
 
       add_to_model_class
+    end
+    
+    def stringify_hash(hash)
+      return hash unless hash.is_a?(Hash)
+      new_hash = {}
+      hash.each do |k,v|
+        new_hash[k.to_s] = v ? v.to_s : v
+      end
+      new_hash      
     end
 
     def add_to_model_class
