@@ -51,6 +51,11 @@ class PgTriggerCount
       new_tables = counts_classes.reject{|klass|klass.table_exists?}.collect(&:table_name)
     end
 
+    # FIXME We need to generate indexes!
+    def indexe_definitions
+      
+    end
+
     def new_counts_table_definitions
       definitions = {}
       reflections_by_counts_class.each do |counts_class,reflections|
@@ -104,6 +109,7 @@ class PgTriggerCount
       definitions
     end
     
+    # FIXME we need to get the current cache version
     def generate_invalidate_cache_function
       "
       CREATE OR REPLACE FUNCTION invalidate_cache(model VARCHAR, key VARCHAR, id VARCHAR) RETURNS BOOL AS $$
@@ -136,6 +142,27 @@ class PgTriggerCount
         :create_triggers  => self.generate_missing_triggers,
         :invalidate_cache => self.generate_invalidate_cache_function      
       }      
+    end
+    
+    def all_functions
+      generate_invalidate_cache_function <<
+      generate_missing_triggers.join("\n") <<
+      generate_functions.join("\n")
+    end
+    
+    def load_all_functions
+      unless self.class.functions_loaded?
+        ActiveRecord::Base.connection.execute all_functions
+        self.class.functions_loaded = true
+      end
+    end
+    
+    def self.functions_loaded?
+      @functions_loaded      
+    end
+    
+    def self.functions_loaded=(bool)
+      @functions_loaded = bool      
     end
     
   end

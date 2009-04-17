@@ -21,7 +21,7 @@ module ActiveRecord
         else
           reflection.update_count_for(self)
           if reflection.record_cache?
-            UserCount.cached_index("by_#{reflection.counts_keys.keys.first}").invalidate(self.send(reflection.counter_keys.keys.first))
+            reflection.counts_class.cached_index("by_#{reflection.counts_keys.keys.first}").invalidate(self.send(reflection.counter_keys.keys.first))
           end
           if (self.send(reflection.counts_association) && self.send(reflection.counts_association).reload) || self.send(reflection.counts_association,true)
             self.send(reflection.counts_association).send(reflection.count_column)

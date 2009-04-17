@@ -83,37 +83,20 @@ class GeneratorTest < Test::Unit::TestCase
          
     end
 
-    # context "missing columns" do
-    #   setup do
-    #     PgtcMigration::CreateTables.up      
-    #   end
-    # 
-    #   teardown do
-    #     PgtcMigration::CreateTables.down
-    #   end                    
-    # 
-    #   should "new columns" do
-    #     assert_equal @generator.new_counts_column_definitions, {"user_counts"=>{"groups_count"=>{:type=>:integer, :name=>"groups_count"}}}
-    #   end
-    # end
-    
-    context "migrations" do
-      
+    context "missing columns" do
       setup do
-        FileUtils.mkdir_p(fake_rails_root)
-        @original_files = file_list
+        PgtcMigration::CreateTables.up      
       end
+    
       teardown do
-        FileUtils.rm_r(fake_rails_root)
-      end
-      
-      should "create migration" do
-        Rails::Generator::Scripts::Generate.new.run(["pg_trigger_count","generate"], :destination => fake_rails_root)
-        new_file = (file_list - @original_files).first
-        pp "ADAMDEBUG: #{new_file}"
+        PgtcMigration::CreateTables.down
+      end                    
+    
+      should "new columns" do
+        assert_equal @generator.new_counts_column_definitions, {"user_counts"=>{"groups_count"=>{:type=>:integer, :name=>"groups_count"}}}
       end
     end
-    
+        
 
   end
 end

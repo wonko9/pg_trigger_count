@@ -91,6 +91,11 @@ class PgTriggerCount::Generator
       end.join(" OR ")
       conditions
     end
+    
+    def select_scoped_record(scope)
+      "SELECT * from #{scope[:table]} WHERE id = #{}"
+      
+    end
 
     def show_record_changed_conditions
       conditions = (reflection.counted_keys.keys + scope.keys).collect do |key|

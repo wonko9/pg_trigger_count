@@ -31,6 +31,7 @@ class PgTriggerCount::Generator
         up_count4 integer;
         up_count5 integer;
         inc_count integer;
+        scope_record RECORD;
       BEGIN
       "
     end

@@ -1,4 +1,17 @@
 class PgTriggerCount
+  
+  class PgtcCallbacks
+    
+    attr_accessor :reflection
+    def initialize(reflection)
+      @reflection = reflection
+    end
+    
+    def after_save(record)
+      reflection.counts_class.cached_index("by_#{reflection.counts_keys.keys.first}").invalidate(record.send(reflection.counted_keys.keys.first))
+    end
+  end
+    
   class Reflection
 
     attr_accessor :options, :counter_class, :counted_class, :counts_class, :count_column, :cache,
@@ -10,12 +23,23 @@ class PgTriggerCount
       @counter_class     = options[:counter_class].to_s.constantize
       @counted_class     = options[:counted_class] ? options[:counted_class].to_s.constantize : options[:count_column].to_s.classify.constantize
       @count_method_name = options[:count_method_name] || count_column
-      @scope             = stringify_hash(options[:scope]) || {}
       @counts_class_name = "#{counter_class}_counts".classify
       @cache             = options[:cache] || defined?(CACHE) ? CACHE : nil
+      @scope             = stringify_hash(options[:scope]) || {}
+      @scope_tables      = {}
       @counter_keys      = {}
       @counted_keys      = {}
       @counts_keys       = {}
+      
+      # Handle scopes that include other tables
+      @scope.each do |k,v|
+        if @scope[k].is_a?(Hash)
+          @scope_tables[k][:scope]         = @scope.delete(k)
+          @scope_tables[k][:table]       ||= k.pluralize
+          @scope_tables[k][:foreign_key] ||= "#{k.singularize}_id"
+          @scope_tables[k][:primary_key] ||= "id"
+        end
+      end
 
       begin
         @counts_class    = options[:counts_class] || @counts_class_name.constantize
@@ -43,6 +67,8 @@ class PgTriggerCount
           }
         }
       end
+      
+      
 
       # setup lookups for each type of table
       @counter_keys.each do |counter_key,keys|
@@ -50,14 +76,16 @@ class PgTriggerCount
         @counts_keys[keys[:counts_key]]   = keys
       end
 
-      if connection and options[:record_cache] and counts_class.respond_to?(:record_cache)
-        @record_cache = PgTriggerCount.use_pgmemcache?(connection)
+      if options[:record_cache] or not options.has_key?(:record_cache)
+        @record_cache = true if counts_class.respond_to?(:record_cache)
+        @use_pgmemcache = PgTriggerCount.use_pgmemcache?(connection) if connection
       end
 
       # set up active record reflection
       counter_class.has_one counts_association, :class_name => counts_class.to_s unless respond_to? counts_class.table_name
       if record_cache?
         counts_class.record_cache :by => counts_keys.keys.first
+        counted_class.after_save PgtcCallbacks.new(self) if not use_pgmemcache?
       end
       counter_class.define_pg_count_method(self)
 
@@ -68,7 +96,11 @@ class PgTriggerCount
       return hash unless hash.is_a?(Hash)
       new_hash = {}
       hash.each do |k,v|
-        new_hash[k.to_s] = v ? v.to_s : v
+        if new_hash[k].is_a?(Hash)
+          new_hash[k.to_s] = stringify_hash(v)
+        else
+          new_hash[k.to_s] = v ? v.to_s : v
+        end
       end
       new_hash      
     end
@@ -85,6 +117,10 @@ class PgTriggerCount
 
     def record_cache?
       @record_cache
+    end
+    
+    def use_pgmemcache?
+      @use_pgmemcache
     end
 
     def cache_key_prefix
@@ -112,7 +148,7 @@ class PgTriggerCount
       target = {}
       counter_keys.keys.each{|k| target[k]=record.send(k) }
       if (connection.update(generator.update_count_from_select_sql(target)) < 1)
-        connection.insert(generator.insert_count_from_select_sql(target))
+        connection.execute(generator.insert_count_from_select_sql(target))
       end
     end
 
