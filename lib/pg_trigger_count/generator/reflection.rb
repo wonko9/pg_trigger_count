@@ -77,9 +77,14 @@ class PgTriggerCount::Generator
     end
     
     def increment_counts_if_valid(target,increment=1)
-      return increment_counts_sql(target,increment) if scope.empty?
+      return increment_counts_sql(target,increment) if scope.empty? and scope_tables.empty?
       if_conditions = scope.collect { |key,val| "#{target}.#{key} IS NOT DISTINCT FROM #{quote(val)}"}.join(" AND ")
-      "IF #{if_conditions} THEN
+      sql = ''
+      if scope_tables.any?
+        sql = scope_tables.values.collect {|s| "#{select_scoped_record(s)};" }.join("\n")
+      end
+      sql += "
+      IF #{if_conditions} THEN
           #{increment_counts_sql(target,increment)};
           END IF"
     end
@@ -92,11 +97,10 @@ class PgTriggerCount::Generator
       conditions
     end
     
-    def select_scoped_record(scope)
-      "SELECT * from #{scope[:table]} WHERE id = #{}"
-      
+    def select_scoped_record(scope,target="NEW")
+      "SELECT * from #{scope[:table]} WHERE #{scope[:primary_key]} = #{target}.#{scope[:foreign_key]}"
     end
-
+    
     def show_record_changed_conditions
       conditions = (reflection.counted_keys.keys + scope.keys).collect do |key|
         "'#{key}: '||coalesce(NEW.#{key}::text,'NULL') || 'IS DISTINCT FROM' || coalesce(OLD.#{key}::text,'NULL')"

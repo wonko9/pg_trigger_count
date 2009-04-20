@@ -15,7 +15,7 @@ class PgTriggerCount
   class Reflection
 
     attr_accessor :options, :counter_class, :counted_class, :counts_class, :count_column, :cache,
-                  :count_method_name, :scope, :counter_keys, :counted_keys, :counts_keys
+                  :count_method_name, :scope, :counter_keys, :counted_keys, :counts_keys, :scope_tables
 
     def initialize(options)
       @options           = options
@@ -34,7 +34,8 @@ class PgTriggerCount
       # Handle scopes that include other tables
       @scope.each do |k,v|
         if @scope[k].is_a?(Hash)
-          @scope_tables[k][:scope]         = @scope.delete(k)
+          @scope_tables[k]                 = @scope.delete(k)
+          @scope_tables[k][:scope]       ||= v
           @scope_tables[k][:table]       ||= k.pluralize
           @scope_tables[k][:foreign_key] ||= "#{k.singularize}_id"
           @scope_tables[k][:primary_key] ||= "id"
